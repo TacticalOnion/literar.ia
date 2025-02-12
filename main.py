@@ -2,7 +2,7 @@
 import streamlit as st
 from anthropic import Anthropic
 
-class LiteraryAgent:
+class EnhancedLiteraryAgent:
     def __init__(self):
         self.anthropic = Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
         
@@ -10,7 +10,15 @@ class LiteraryAgent:
         self.styles = {
             "Cortázar": "narrativa no lineal, realismo mágico, juegos con el tiempo",
             "Pizarnik": "poético, oscuro, introspectivo",
-            "Bukowski": "crudo, directo, realista"
+            "García Márquez": "realismo mágico, narrativa circular, memoria colectiva",
+            "Rulfo": "realismo rural, voces espectrales, tiempo fragmentado",
+            "Allende": "realismo mágico, perspectiva femenina, saga familiar",
+            "Esquivel": "realismo mágico culinario, romance, tradición",
+            "Carpentier": "real maravilloso, barroquismo, historia",
+            "Bukowski": "realismo sucio, cotidianidad cruda, antimaterialismo",
+            "Yates": "realismo psicológico, desesperanza suburbana, introspección",
+            "Wolff": "realismo minimalista, memoria personal, relaciones familiares",
+            "Phillips": "realismo psicológico, voces marginales, intimismo"
         }
         
         self.themes = [
@@ -19,33 +27,53 @@ class LiteraryAgent:
             "Realidades paralelas",
             "Memoria y tiempo",
             "Sueños y realidad",
-            "El absurdo cotidiano"
+            "El absurdo cotidiano",
+            "Conflictos familiares",
+            "La búsqueda de identidad",
+            "El peso de la historia",
+            "La transformación personal",
+            "La vida en los márgenes",
+            "El desarraigo urbano"
+        ]
+        
+        # Literary genres
+        self.genres = [
+            "Realismo mágico",
+            "Literatura urbana",
+            "Novela psicológica",
+            "Realismo sucio",
+            "Real maravilloso",
+            "Narrativa experimental"
         ]
 
-    def get_story_prompt(self, theme, style_mix, length, additional_notes):
+    def get_story_prompt(self, theme, genre, style_mix, length, additional_notes):
         return f"""
         Genera un cuento original que combine los siguientes elementos:
         
         Tema principal: {theme}
+        Género literario: {genre}
         Estilos literarios a combinar: {style_mix}
         Longitud aproximada: {length} palabras
         
         Notas adicionales: {additional_notes}
         
-        El cuento debe ser completamente original mientras mantiene elementos 
-        estilísticos de Cortázar, Pizarnik y Bukowski, específicamente en:
-        - La estructura narrativa experimental de Cortázar
-        - El lenguaje poético y metafórico de Pizarnik
-        - La crudeza y honestidad de Bukowski
+        El cuento debe ser completamente original mientras integra elementos 
+        estilísticos de los autores seleccionados, considerando:
+        - La construcción del mundo narrativo
+        - El manejo del tiempo y la estructura
+        - El tono y la voz narrativa
+        - El tratamiento de los personajes
+        - La atmósfera y el ambiente
         
-        Por favor, genera una historia original que integre estos elementos.
+        La historia debe mantener coherencia con el género seleccionado 
+        mientras incorpora los elementos estilísticos de los autores.
         """
 
     def generate_story(self, prompt):
         try:
             response = self.anthropic.messages.create(
                 model="claude-3-haiku-20240307",
-                max_tokens=1000,
+                max_tokens=2000,
                 temperature=0.9,
                 messages=[
                     {"role": "user", "content": prompt}
@@ -56,27 +84,60 @@ class LiteraryAgent:
             return f"Error en la generación: {str(e)}"
 
 def main():
-    st.set_page_config(page_title="Agente Escritor Literario", page_icon="📚")
+    st.set_page_config(page_title="Agente Escritor Literario Avanzado", page_icon="📚")
     
     st.title("📚 Generador de Cuentos Literarios")
-    st.write("Inspirado en Cortázar, Pizarnik y Bukowski")
+    st.write("Una fusión de estilos literarios latinoamericanos y universales")
     
     # Inicializar el agente
-    agent = LiteraryAgent()
+    agent = EnhancedLiteraryAgent()
     
-    # Interfaz de usuario
+    # Interfaz de usuario mejorada
     with st.form("story_generator"):
+        # Selección de género
+        genre = st.selectbox(
+            "Selecciona un género literario",
+            agent.genres
+        )
+        
         # Selección de tema
         theme = st.selectbox(
             "Selecciona un tema",
             agent.themes
         )
         
-        # Mezcla de estilos
-        st.write("Influencia de estilos")
-        cortazar_influence = st.slider("Cortázar", 0, 100, 33)
-        pizarnik_influence = st.slider("Pizarnik", 0, 100, 33)
-        bukowski_influence = st.slider("Bukowski", 0, 100, 34)
+        # Selección de autores y sus influencias
+        st.write("### Influencia de autores")
+        st.write("Selecciona hasta tres autores y ajusta sus niveles de influencia")
+        
+        # Permitir selección de autores
+        available_authors = list(agent.styles.keys())
+        selected_authors = st.multiselect(
+            "Selecciona los autores (máximo 3)",
+            available_authors,
+            max_selections=3
+        )
+        
+        # Sliders dinámicos para los autores seleccionados
+        author_influences = {}
+        if selected_authors:
+            remaining_percentage = 100
+            for i, author in enumerate(selected_authors[:-1]):  # Todos menos el último
+                max_value = remaining_percentage if i == len(selected_authors)-2 else 100
+                influence = st.slider(
+                    f"Influencia de {author}",
+                    0,
+                    max_value,
+                    min(33, max_value)
+                )
+                author_influences[author] = influence
+                remaining_percentage -= influence
+            
+            # El último autor toma el porcentaje restante
+            if selected_authors:
+                last_author = selected_authors[-1]
+                author_influences[last_author] = remaining_percentage
+                st.write(f"Influencia de {last_author}: {remaining_percentage}%")
         
         # Longitud
         length = st.select_slider(
@@ -94,16 +155,19 @@ def main():
         submitted = st.form_submit_button("Generar Cuento")
         
     if submitted:
-        # Crear mezcla de estilos basada en los porcentajes
-        style_mix = f"""
-        Cortázar ({cortazar_influence}%): {agent.styles['Cortázar']}
-        Pizarnik ({pizarnik_influence}%): {agent.styles['Pizarnik']}
-        Bukowski ({bukowski_influence}%): {agent.styles['Bukowski']}
-        """
+        if not selected_authors:
+            st.error("Por favor, selecciona al menos un autor.")
+            return
+            
+        # Crear mezcla de estilos basada en los autores seleccionados
+        style_mix = "\n".join([
+            f"{author} ({influence}%): {agent.styles[author]}"
+            for author, influence in author_influences.items()
+        ])
         
         with st.spinner("Generando historia..."):
             # Generar el prompt y la historia
-            prompt = agent.get_story_prompt(theme, style_mix, length, additional_notes)
+            prompt = agent.get_story_prompt(theme, genre, style_mix, length, additional_notes)
             story = agent.generate_story(prompt)
             
             # Mostrar la historia
