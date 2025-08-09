@@ -1,11 +1,15 @@
 # app.py
 import streamlit as st
-from anthropic import Anthropic
+import requests
 
 class EnhancedLiteraryAgent:
     def __init__(self):
-        self.anthropic = Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-        
+        base = st.secrets.get("OLLAMA_BASE_URL", "http://localhost:11434")
+        self.ollama_url = f"{base}/api/generate"
+        self.ollama_model = st.secrets.get("OLLAMA_MODEL", "llama3.1:8b-instruct-q4_1")
+        self.system_prompt = st.secrets.get("OLLAMA_SYSTEM", "")
+        self.safe_preamble = st.secrets.get("OLLAMA_PREAMBLE", "")
+
         # Elementos literarios predefinidos
         self.styles = {
             "Cortázar": "narrativa no lineal, realismo mágico, juegos con el tiempo",
@@ -36,7 +40,7 @@ class EnhancedLiteraryAgent:
             "El desarraigo urbano"
         ]
         
-        # Literary genres
+        # Géneros literarios
         self.genres = [
             "Realismo mágico",
             "Literatura urbana",
@@ -48,6 +52,7 @@ class EnhancedLiteraryAgent:
 
     def get_story_prompt(self, theme, genre, style_mix, length, additional_notes):
         return f"""
+        {self.safe_preamble}
         Genera un cuento original que combine los siguientes elementos:
         
         Tema principal: {theme}
@@ -71,15 +76,20 @@ class EnhancedLiteraryAgent:
 
     def generate_story(self, prompt):
         try:
-            response = self.anthropic.messages.create(
-                model="claude-3-haiku-20240307",
-                max_tokens=2000,
-                temperature=0.9,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
-            return response.content[0].text
+            payload = {
+                "model": self.ollama_model,
+                "prompt": prompt,
+                "stream": False,
+                "system": self.system_prompt,
+                "options": {
+                    "temperature": 0.9,
+                    "num_predict": 2000
+                }
+            }
+            response = requests.post(self.ollama_url, json=payload, timeout=120)
+            response.raise_for_status()
+            data = response.json()
+            return data.get("response", "No se pudo generar la historia.")
         except Exception as e:
             return f"Error en la generación: {str(e)}"
 

@@ -1,14 +1,18 @@
 import streamlit as st
-from anthropic import Anthropic
+import requests
 import json
 import random
 from datetime import datetime
 
 class LiteraryAgent:
     def __init__(self):
-        self.anthropic = Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-        
-        # Elementos narrativos base
+        base = st.secrets.get("OLLAMA_BASE_URL", "http://localhost:11434")
+        self.ollama_url = f"{base}/api/generate"
+        self.ollama_model = st.secrets.get("OLLAMA_MODEL", "llama3.1:8b-instruct-q4_1")
+        self.system_prompt = st.secrets.get("OLLAMA_SYSTEM", "")
+        self.safe_preamble = st.secrets.get("OLLAMA_PREAMBLE", "")
+
+        # Elementos narrativos predefinidos
         self.narrative_elements = {
             "temas": ["soledad", "alienación", "realidad fragmentada", "tiempo no lineal", 
                      "memoria", "sueños", "ciudad", "relaciones humanas"],
@@ -23,8 +27,9 @@ class LiteraryAgent:
             st.session_state.stories = []
 
     def generate_prompt(self, theme, tone, structure, additional_instructions):
-        """Genera el prompt para Claude"""
+        """Genera el prompt para Ollama"""
         base_prompt = f"""
+        {self.safe_preamble}
         Crea un cuento original con las siguientes características:
         - Tema principal: {theme}
         - Tono narrativo: {tone}
@@ -45,20 +50,22 @@ class LiteraryAgent:
         return base_prompt
 
     def generate_story(self, prompt):
-        """Genera un cuento usando la API de Claude"""
+        """Genera un cuento usando Ollama"""
         try:
-            message = self.anthropic.messages.create(
-                model="claude-3-opus-20240229",
-                max_tokens=2000,
-                temperature=0.9,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
-            )
-            return message.content[0].text
+            payload = {
+                "model": self.ollama_model,
+                "prompt": prompt,
+                "stream": False,
+                "system": self.system_prompt,
+                "options": {
+                    "temperature": 0.9,
+                    "num_predict": 2000
+                }
+            }
+            response = requests.post(self.ollama_url, json=payload, timeout=120)
+            response.raise_for_status()
+            data = response.json()
+            return data.get("response", "No se pudo generar la historia.")
         except Exception as e:
             return f"Error en la generación: {str(e)}"
 
@@ -145,13 +152,6 @@ def main():
         page_icon="🖋️",
         layout="wide"
     )
-    
-    if "ANTHROPIC_API_KEY" not in st.secrets:
-        st.error("""
-        ⚠️ Configura tu clave API de Anthropic en .streamlit/secrets.toml:
-        ANTHROPIC_API_KEY = "tu-clave-api"
-        """)
-        return
     
     agent = LiteraryAgent()
     agent.display_interface()
