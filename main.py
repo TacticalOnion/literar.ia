@@ -7,8 +7,6 @@ class EnhancedLiteraryAgent:
         base = st.secrets.get("OLLAMA_BASE_URL", "http://localhost:11434")
         self.ollama_url = f"{base}/api/generate"
         self.ollama_model = st.secrets.get("OLLAMA_MODEL", "llama3.1:8b-instruct-q4_1")
-        self.system_prompt = st.secrets.get("OLLAMA_SYSTEM", "")
-        self.safe_preamble = st.secrets.get("OLLAMA_PREAMBLE", "")
 
         # Elementos literarios predefinidos
         self.styles = {
@@ -52,7 +50,6 @@ class EnhancedLiteraryAgent:
 
     def get_story_prompt(self, theme, genre, style_mix, length, additional_notes):
         return f"""
-        {self.safe_preamble}
         Genera un cuento original que combine los siguientes elementos:
         
         Tema principal: {theme}
@@ -80,13 +77,12 @@ class EnhancedLiteraryAgent:
                 "model": self.ollama_model,
                 "prompt": prompt,
                 "stream": False,
-                "system": self.system_prompt,
                 "options": {
                     "temperature": 0.9,
                     "num_predict": 2000
                 }
             }
-            response = requests.post(self.ollama_url, json=payload, timeout=120)
+            response = requests.post(self.ollama_url, json=payload, timeout=300)
             response.raise_for_status()
             data = response.json()
             return data.get("response", "No se pudo generar la historia.")
